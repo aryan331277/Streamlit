@@ -7,7 +7,7 @@ from PIL import Image
 # Configuration
 # --------------------------
 MODEL_PATH = "model.pkl"
-XAI_IMAGE_PATH = "feature importance of rf regressor.png"
+XAI_IMAGE_PATH = "xai_feature_importance.png"
 
 # --------------------------
 # Load Resources
@@ -15,8 +15,7 @@ XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 try:
     model = joblib.load(MODEL_PATH)
     xai_image = Image.open(XAI_IMAGE_PATH)
-    # Get original feature names from the model
-    feature_names = model.feature_names_in_
+    feature_names = model.feature_names_in_  # Get original feature order
 except Exception as e:
     st.error(f"Error loading resources: {str(e)}")
     st.stop()
@@ -25,65 +24,48 @@ except Exception as e:
 # Streamlit UI
 # --------------------------
 st.set_page_config(page_title="Urban Analytics", layout="wide")
-st.title("🌇 Urban Heat Island Comprehensive Analysis")
+st.title("🌡️ Urban Heat Prediction Tool")
 
 # --------------------------
-# Input Fields Matching Original Training Features
+# Input Fields (Aligned with Model Expectations)
 # --------------------------
 with st.sidebar:
     st.header("Urban Parameters")
-    
-    # Create input fields in EXACT order of original training features
     inputs = {}
     
-    # Geospatial Features
+    # Mandatory Features from Model
     inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
     inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
-    
-    # Environmental Features
-    inputs['Land Cover Type'] = st.selectbox("Land Cover Type", 
-                                           ["Urban", "Suburban", "Rural", "Water"])
     inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
     inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
     inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
-    inputs['Relative Humidity'] = st.slider("Relative Humidity (%)", 0, 100, 60)
+    inputs['Relative Humidity'] = st.slider("Humidity (%)", 0, 100, 60)
     inputs['Wind Speed'] = st.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0, 0.1)
-    
-    # Infrastructure Features
-    inputs['Surface Material'] = st.selectbox("Surface Material", 
-                                            ["Concrete", "Asphalt", "Grass", "Water", "Mixed"])
     inputs['Building Height'] = st.slider("Building Height (m)", 5, 150, 30)
     inputs['Road Density'] = st.slider("Road Density (km/km²)", 0.0, 20.0, 5.0, 0.1)
     inputs['Proximity to Water Body'] = st.slider("Water Proximity (m)", 0, 5000, 1000)
-    
-    # Thermal Features
     inputs['Solar Radiation'] = st.slider("Solar Radiation (W/m²)", 0, 1000, 500)
-    inputs['Nighttime Surface Temperature'] = st.slider("Night Temperature (°C)", 15.0, 40.0, 25.0, 0.1)
-    
-    # Required Features from Error Message
+    inputs['Nighttime Surface Temperature'] = st.slider("Night Temp (°C)", 15.0, 40.0, 25.0, 0.1)
     inputs['Distance from Previous Point'] = st.number_input("Distance from Previous Point (m)", 0, 5000, 100)
     inputs['Heat Stress Index'] = st.slider("Heat Stress Index", 0.0, 10.0, 3.5, 0.1)
     inputs['Urban Vegetation Index'] = st.slider("Vegetation Index", 0.0, 1.0, 0.5, 0.01)
     inputs['Carbon Emission Levels'] = st.number_input("CO₂ Levels (ppm)", 300, 1000, 400)
     
-    # Add any other features from model.feature_names_in_
+    # Surface Material with consistent encoding
+    inputs['Surface Material'] = st.selectbox("Surface Material", 
+                                            ["Concrete", "Asphalt", "Grass", "Water", "Mixed"])
 
 # --------------------------
 # Prediction System
 # --------------------------
-if st.sidebar.button("Run Analysis"):
+if st.sidebar.button("Predict Temperature"):
     try:
-        # Create DataFrame with EXACT feature order from training
+        # Create input DataFrame with EXACT feature order
         input_df = pd.DataFrame([inputs], columns=feature_names)
         
-        # Encode categoricals to match training preprocessing
-        categorical_mappings = {
-            'Land Cover Type': {"Urban":0, "Suburban":1, "Rural":2, "Water":3},
-            'Surface Material': {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
-        }
-        
-        for col, mapping in categorical_mappings.items():
-            input_df[col] = input_df[col].map(mapping)
+        # Encode surface material to match training
+        material_map = {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
+        input_df['Surface Material'] = input_df['Surface Material'].map(material_map)
         
         # Make prediction
         prediction = model.predict(input_df)[0]
@@ -91,30 +73,40 @@ if st.sidebar.button("Run Analysis"):
         # --------------------------
         # Display Results
         # --------------------------
-        col1, col2 = st.columns([2, 3])
+        col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.subheader("Core Prediction")
-            st.metric("Predicted Surface Temperature", f"{prediction:.1f}°C")
-            st.image(xai_image, caption="Model Feature Importance", use_column_width=True)
+            st.subheader("Prediction Results")
+            st.metric("Surface Temperature", f"{prediction:.1f}°C")
+            st.image(xai_image, caption="Key Influencing Factors", use_column_width=True)
             
         with col2:
-            st.subheader("Actionable Insights")
+            st.subheader("Optimization Suggestions")
             
-            # Generate recommendations based on thresholds
-            recommendations = []
-            if inputs['Green Cover Percentage'] < 25:
-                recommendations.append("🌳 Increase green cover to ≥25%")
-            if inputs['Heat Stress Index'] > 4.0:
-                recommendations.append("🌡️ Implement heat stress reduction measures")
-            if inputs['Distance from Previous Point'] > 500:
-                recommendations.append("📍 Optimize urban connectivity")
+            # Generate actionable recommendations
+            if prediction > 35:
+                st.error("🚨 Critical heat levels detected!")
+                st.write("""
+                - Immediately increase green cover by 10-15%
+                - Implement emergency cooling measures
+                - Restrict high-emission activities
+                """)
                 
-            if recommendations:
-                for rec in recommendations:
-                    st.warning(rec)
-            else:
-                st.success("✅ Urban parameters within optimal ranges")
+            if inputs['Heat Stress Index'] > 4.0:
+                st.warning("🔥 High heat stress detected:")
+                st.write("""
+                - Install shade structures in public areas
+                - Increase water station availability
+                - Adjust outdoor work schedules
+                """)
+                
+            if inputs['Carbon Emission Levels'] > 450:
+                st.warning("🌍 High emissions detected:")
+                st.write("""
+                - Promote public transportation
+                - Implement green energy incentives
+                - Optimize waste management
+                """)
 
     except Exception as e:
         st.error(f"Analysis failed: {str(e)}")
@@ -123,8 +115,4 @@ if st.sidebar.button("Run Analysis"):
 # Footer
 # --------------------------
 st.markdown("---")
-st.markdown("Urban Analytics Platform v2.1 | Model Feature Count: {}".format(len(feature_names)))
-# Footer
-# --------------------------
-st.markdown("---")
-st.markdown("Urban Analytics Platform v2.0 | [Documentation](#) | [GitHub Repo](https://github.com/your-repo)")
+st.caption(f"Model expecting {len(feature_names)} features | Version 2.2 | [GitHub Repo](#)")
