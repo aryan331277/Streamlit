@@ -8,6 +8,7 @@ from PIL import Image
 # --------------------------
 MODEL_PATH = "model.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
+SURFACE_MATERIALS = ["Concrete", "Asphalt", "Grass", "Water", "Mixed"]  # Must match training categories
 
 # --------------------------
 # Load Resources
@@ -15,7 +16,7 @@ XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 try:
     model = joblib.load(MODEL_PATH)
     xai_image = Image.open(XAI_IMAGE_PATH)
-    feature_names = model.feature_names_in_  # Get original feature order
+    feature_names = model.feature_names_in_
 except Exception as e:
     st.error(f"Error loading resources: {str(e)}")
     st.stop()
@@ -24,95 +25,82 @@ except Exception as e:
 # Streamlit UI
 # --------------------------
 st.set_page_config(page_title="Urban Analytics", layout="wide")
-st.title("🌡️ Urban Heat Prediction Tool")
+st.title("🏙️ Surface Material-Compatible Heat Predictor")
 
 # --------------------------
-# Input Fields (Aligned with Model Expectations)
+# Input Handling
 # --------------------------
 with st.sidebar:
     st.header("Urban Parameters")
-    inputs = {}
     
-    # Mandatory Features from Model
-    inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
-    inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
-    inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
-    inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
-    inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
-    inputs['Relative Humidity'] = st.slider("Humidity (%)", 0, 100, 60)
-    inputs['Wind Speed'] = st.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0, 0.1)
-    inputs['Building Height'] = st.slider("Building Height (m)", 5, 150, 30)
-    inputs['Road Density'] = st.slider("Road Density (km/km²)", 0.0, 20.0, 5.0, 0.1)
-    inputs['Proximity to Water Body'] = st.slider("Water Proximity (m)", 0, 5000, 1000)
-    inputs['Solar Radiation'] = st.slider("Solar Radiation (W/m²)", 0, 1000, 500)
-    inputs['Nighttime Surface Temperature'] = st.slider("Night Temp (°C)", 15.0, 40.0, 25.0, 0.1)
-    inputs['Distance from Previous Point'] = st.number_input("Distance from Previous Point (m)", 0, 5000, 100)
-    inputs['Heat Stress Index'] = st.slider("Heat Stress Index", 0.0, 10.0, 3.5, 0.1)
-    inputs['Urban Vegetation Index'] = st.slider("Vegetation Index", 0.0, 1.0, 0.5, 0.01)
-    inputs['Carbon Emission Levels'] = st.number_input("CO₂ Levels (ppm)", 300, 1000, 400)
+    # Collect all features EXCEPT Surface Material first
+    inputs = {
+        'Latitude': st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001),
+        'Longitude': st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001),
+        'Population Density': st.number_input("Population Density (people/km²)", 1000, 50000, 20000),
+        'Albedo': st.slider("Albedo", 0.0, 1.0, 0.3, 0.05),
+        'Green Cover Percentage': st.slider("Green Cover (%)", 0, 100, 25),
+        'Relative Humidity': st.slider("Humidity (%)", 0, 100, 60),
+        'Wind Speed': st.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0, 0.1),
+        'Building Height': st.slider("Building Height (m)", 5, 150, 30),
+        'Road Density': st.slider("Road Density (km/km²)", 0.0, 20.0, 5.0, 0.1),
+        'Proximity to Water Body': st.slider("Water Proximity (m)", 0, 5000, 1000),
+        'Solar Radiation': st.slider("Solar Radiation (W/m²)", 0, 1000, 500),
+        'Nighttime Surface Temperature': st.slider("Night Temp (°C)", 15.0, 40.0, 25.0, 0.1),
+        'Distance from Previous Point': st.number_input("Distance from Previous Point (m)", 0, 5000, 100),
+        'Heat Stress Index': st.slider("Heat Stress Index", 0.0, 10.0, 3.5, 0.1),
+        'Urban Vegetation Index': st.slider("Vegetation Index", 0.0, 1.0, 0.5, 0.01),
+        'Carbon Emission Levels': st.number_input("CO₂ Levels (ppm)", 300, 1000, 400)
+    }
     
-    # Surface Material with consistent encoding
-    inputs['Surface Material'] = st.selectbox("Surface Material", 
-                                            ["Concrete", "Asphalt", "Grass", "Water", "Mixed"])
+    # Handle Surface Material with one-hot encoding
+    selected_material = st.selectbox("Surface Material", SURFACE_MATERIALS)
+    for material in SURFACE_MATERIALS:
+        inputs[f"Surface Material_{material}"] = 1 if material == selected_material else 0
 
 # --------------------------
 # Prediction System
 # --------------------------
 if st.sidebar.button("Predict Temperature"):
     try:
-        # Create input DataFrame with EXACT feature order
+        # Create DataFrame with proper feature order
         input_df = pd.DataFrame([inputs], columns=feature_names)
         
-        # Encode surface material to match training
-        material_map = {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
-        input_df['Surface Material'] = input_df['Surface Material'].map(material_map)
+        # Debug: Show feature alignment
+        st.write("### Feature Verification")
+        st.write("Expected features:", feature_names)
+        st.write("Provided features:", input_df.columns.tolist())
         
         # Make prediction
         prediction = model.predict(input_df)[0]
         
-        # --------------------------
-        # Display Results
-        # --------------------------
-        col1, col2 = st.columns([1, 2])
-        
+        # Display results
+        col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Prediction Results")
+            st.subheader("Prediction Result")
             st.metric("Surface Temperature", f"{prediction:.1f}°C")
-            st.image(xai_image, caption="Key Influencing Factors", use_column_width=True)
+            st.image(xai_image, use_column_width=True)
             
         with col2:
-            st.subheader("Optimization Suggestions")
-            
-            # Generate actionable recommendations
-            if prediction > 35:
-                st.error("🚨 Critical heat levels detected!")
+            st.subheader("Material-Specific Suggestions")
+            if selected_material in ["Concrete", "Asphalt"]:
+                st.warning("🏗️ High heat retention material detected!")
                 st.write("""
-                - Immediately increase green cover by 10-15%
-                - Implement emergency cooling measures
-                - Restrict high-emission activities
+                - Apply reflective coatings
+                - Increase shaded areas
+                - Consider permeable pavement options
                 """)
-                
-            if inputs['Heat Stress Index'] > 4.0:
-                st.warning("🔥 High heat stress detected:")
-                st.write("""
-                - Install shade structures in public areas
-                - Increase water station availability
-                - Adjust outdoor work schedules
-                """)
-                
-            if inputs['Carbon Emission Levels'] > 450:
-                st.warning("🌍 High emissions detected:")
-                st.write("""
-                - Promote public transportation
-                - Implement green energy incentives
-                - Optimize waste management
-                """)
+            elif selected_material == "Grass":
+                st.success("🌿 Optimal natural surface detected")
+            elif selected_material == "Water":
+                st.info("💧 Water body helping with cooling")
 
     except Exception as e:
         st.error(f"Analysis failed: {str(e)}")
+        st.write("Feature mismatch details:", str(e))
 
 # --------------------------
 # Footer
 # --------------------------
 st.markdown("---")
-st.caption(f"Model expecting {len(feature_names)} features | Version 2.2 | [GitHub Repo](#)")
+st.caption(f"Surface Material Options: {', '.join(SURFACE_MATERIALS)} | Model version: 3.0")
