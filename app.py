@@ -5,9 +5,7 @@ from PIL import Image
 import traceback
 import sklearn
 
-# --------------------------
-# Configuration
-# --------------------------
+
 MODEL_PATH = "model.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 HEAT_THRESHOLDS = {
@@ -19,18 +17,13 @@ HEAT_THRESHOLDS = {
     'population_density_max': 15000
 }
 
-# --------------------------
-# Load Resources with Validation
-# --------------------------
+
 try:
-    # Load model first for feature verification
     model = joblib.load(MODEL_PATH)
     required_features = model.feature_names_in_
     
-    # Load XAI image
     xai_image = Image.open(XAI_IMAGE_PATH)
     
-    # Version compatibility check
     st.session_state['sklearn_version'] = sklearn.__version__
 
 except FileNotFoundError as e:
@@ -49,20 +42,13 @@ except Exception as e:
     """)
     st.stop()
 
-# --------------------------
-# Streamlit UI
-# --------------------------
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
 st.title("🌡️ Comprehensive Urban Heat Analysis")
 
-# --------------------------
-# Input Handling
-# --------------------------
 with st.sidebar:
     st.header("Urban Parameters")
     inputs = {}
     
-    # Required features from model
     try:
         inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
         inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
@@ -86,27 +72,21 @@ with st.sidebar:
         st.error(f"Missing input field: {str(e)}")
         st.stop()
 
-# --------------------------
-# Prediction System
-# --------------------------
+
 if st.sidebar.button("Analyze Urban Heat"):
     try:
-        # Feature Validation
         missing_features = [f for f in required_features if f not in inputs]
         if missing_features:
             st.error(f"Missing features: {', '.join(missing_features)}")
             st.stop()
             
-        # Create input DataFrame with exact feature order
         input_df = pd.DataFrame([inputs], columns=required_features)
         
-        # Encode categorical features
         if 'Surface Material' in required_features:
             material_map = {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
             input_df['Surface Material'] = input_df['Surface Material'].map(material_map)
             input_df['Surface Material'] = input_df['Surface Material'].astype(int)
 
-        # Debug Info
         with st.expander("Debug Information", expanded=False):
             st.write("### Model Expectations")
             st.write(f"scikit-learn version: {st.session_state.sklearn_version}")
@@ -116,10 +96,7 @@ if st.sidebar.button("Analyze Urban Heat"):
 
         # Make prediction
         prediction = model.predict(input_df)[0]
-        
-        # --------------------------
-        # Analysis & Recommendations
-        # --------------------------
+
         col1, col2 = st.columns([1, 2])
         
         with col1:
@@ -130,7 +107,6 @@ if st.sidebar.button("Analyze Urban Heat"):
         with col2:
             st.subheader("Heat Mitigation Strategy")
             
-            # Generate recommendations
             recommendations = []
             if prediction > HEAT_THRESHOLDS['critical_temp']:
                 st.error("🚨 Emergency Cooling Required")
@@ -167,14 +143,3 @@ if st.sidebar.button("Analyze Urban Heat"):
         {traceback.format_exc()}
         """)
         st.stop()
-
-# --------------------------
-# Footer & Debug Info
-# --------------------------
-st.markdown("---")
-st.caption(f"""
-**System Information**  
-- scikit-learn: {st.session_state.sklearn_version}  
-- Model Features: {len(required_features)}  
-- Last Updated: 2024-02-15  
-""")
