@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 
-url = "https://raw.githubusercontent.com/aryan331277/Streamlit/main/IITH.csv"
+url = "https://raw.githubusercontent.com/aryan331277/Urban-Heat-Index/main/IITH.csv"
 data = pd.read_csv(url)
 
 X = data[['Latitude', 'Longitude', 'Population Density', 'Albedo', 
