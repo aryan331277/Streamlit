@@ -2,15 +2,12 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 
-# Load dataset
 url = "https://raw.githubusercontent.com/aryan331277/Streamlit/main/IITH.csv"
 data = pd.read_csv(url)
 
-# Prepare features and target
-X = data.drop(columns=["Land Surface Temperature"])
+X=data[['Latitude','Longitude','Population Density','Albedo','Green Cover Percentage','Relative Humidity','Wind Speed','Solar Radiation','Nighttime Surface Temperature','Building Height','Road Density','Proximity to Water Body','Urban Vegetation Index','Heat Stress Index','Carbon Emission Levels','Distance from Previous Point']]
 y = data["Land Surface Temperature"]
 
-# Train model
 model = RandomForestRegressor(random_state=42)
 model.fit(X, y)
 
