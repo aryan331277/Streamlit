@@ -43,7 +43,7 @@ except Exception as e:
     st.stop()
 
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
-st.title("🌡️ Comprehensive Urban Heat Analysis")
+st.title("Comprehensive Urban Heat Analysis")
 
 with st.sidebar:
     st.header("Urban Parameters")
