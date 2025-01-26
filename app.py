@@ -8,7 +8,7 @@ import sklearn
 # --------------------------
 # Configuration
 # --------------------------
-MODEL_PATH = "model.pkl"
+MODEL_PATH = "trainedmodel.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 
 HEAT_THRESHOLDS = {
