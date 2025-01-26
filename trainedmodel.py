@@ -1,13 +1,19 @@
-import joblib
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.datasets import make_regression
+import joblib
 
-# Generate example training data
+# Load dataset
+url = "https://raw.githubusercontent.com/aryan331277/Streamlit/main/IITH.csv"
+data = pd.read_csv(url)
 
-# Train the model
+# Prepare features and target
+X = data.drop(columns=["Land Surface Temperature"])
+y = data["Land Surface Temperature"]
+
+# Train model
 model = RandomForestRegressor(random_state=42)
-model.fit(X_train, Y_train)
+model.fit(X, y)
 
-# Save the model as a .pkl file
+# Save model
 joblib.dump(model, "model.pkl")
 print("Model saved as model.pkl")
