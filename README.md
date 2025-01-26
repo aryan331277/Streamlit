@@ -37,10 +37,10 @@ Recommendations are based on user inputs and predefined heat thresholds.
 User-friendly input fields for urban parameters.
 
 
-5.Real-time predictions and visualizations.
+Real-time predictions and visualizations.
 
 
-Scalable and Customizable:
+5.Scalable and Customizable:
 
 
 Easily adaptable to different cities and datasets.
