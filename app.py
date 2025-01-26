@@ -2,6 +2,8 @@ import streamlit as st
 import joblib
 import pandas as pd
 from PIL import Image
+import traceback
+import sklearn
 
 # --------------------------
 # Configuration
@@ -18,14 +20,33 @@ HEAT_THRESHOLDS = {
 }
 
 # --------------------------
-# Load Resources
+# Load Resources with Validation
 # --------------------------
 try:
+    # Load model first for feature verification
     model = joblib.load(MODEL_PATH)
+    required_features = model.feature_names_in_
+    
+    # Load XAI image
     xai_image = Image.open(XAI_IMAGE_PATH)
-    feature_names = model.feature_names_in_
+    
+    # Version compatibility check
+    st.session_state['sklearn_version'] = sklearn.__version__
+
+except FileNotFoundError as e:
+    st.error(f"""
+    **Missing Critical File**  
+    {str(e)}  
+    🔍 Required files:  
+    1. `model.pkl` - Trained model  
+    2. `feature importance of rf regressor.png` - Feature importance image  
+    """)
+    st.stop()
 except Exception as e:
-    st.error(f"Error loading resources: {str(e)}")
+    st.error(f"""
+    **Initialization Error**  
+    {traceback.format_exc()}  
+    """)
     st.stop()
 
 # --------------------------
@@ -41,140 +62,119 @@ with st.sidebar:
     st.header("Urban Parameters")
     inputs = {}
     
-    # Numerical Features
-    inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
-    inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
-    inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
-    inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
-    inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
-    inputs['Relative Humidity'] = st.slider("Humidity (%)", 0, 100, 60)
-    inputs['Wind Speed'] = st.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0, 0.1)
-    inputs['Building Height'] = st.slider("Building Height (m)", 5, 150, 30)
-    inputs['Road Density'] = st.slider("Road Density (km/km²)", 0.0, 20.0, 5.0, 0.1)
-    inputs['Proximity to Water Body'] = st.slider("Water Proximity (m)", 0, 5000, 1000)
-    inputs['Solar Radiation'] = st.slider("Solar Radiation (W/m²)", 0, 1000, 500)
-    inputs['Nighttime Surface Temperature'] = st.slider("Night Temp (°C)", 15.0, 40.0, 25.0, 0.1)
-    inputs['Distance from Previous Point'] = st.number_input("Distance from Previous Point (m)", 0, 5000, 100)
-    inputs['Heat Stress Index'] = st.slider("Heat Stress Index", 0.0, 10.0, 3.5, 0.1)
-    inputs['Urban Vegetation Index'] = st.slider("Vegetation Index", 0.0, 1.0, 0.5, 0.01)
-    inputs['Carbon Emission Levels'] = st.number_input("CO₂ Levels (ppm)", 300, 1000, 400)
-    
-    # Categorical Feature
-    inputs['Surface Material'] = st.selectbox("Surface Material", 
-                                            ["Concrete", "Asphalt", "Grass", "Water", "Mixed"])
+    # Required features from model
+    try:
+        inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
+        inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
+        inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
+        inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
+        inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
+        inputs['Relative Humidity'] = st.slider("Humidity (%)", 0, 100, 60)
+        inputs['Wind Speed'] = st.slider("Wind Speed (m/s)", 0.0, 15.0, 3.0, 0.1)
+        inputs['Building Height'] = st.slider("Building Height (m)", 5, 150, 30)
+        inputs['Road Density'] = st.slider("Road Density (km/km²)", 0.0, 20.0, 5.0, 0.1)
+        inputs['Proximity to Water Body'] = st.slider("Water Proximity (m)", 0, 5000, 1000)
+        inputs['Solar Radiation'] = st.slider("Solar Radiation (W/m²)", 0, 1000, 500)
+        inputs['Nighttime Surface Temperature'] = st.slider("Night Temp (°C)", 15.0, 40.0, 25.0, 0.1)
+        inputs['Distance from Previous Point'] = st.number_input("Distance from Previous Point (m)", 0, 5000, 100)
+        inputs['Heat Stress Index'] = st.slider("Heat Stress Index", 0.0, 10.0, 3.5, 0.1)
+        inputs['Urban Vegetation Index'] = st.slider("Vegetation Index", 0.0, 1.0, 0.5, 0.01)
+        inputs['Carbon Emission Levels'] = st.number_input("CO₂ Levels (ppm)", 300, 1000, 400)
+        inputs['Surface Material'] = st.selectbox("Surface Material", ["Concrete", "Asphalt", "Grass", "Water", "Mixed"])
+        
+    except KeyError as e:
+        st.error(f"Missing input field: {str(e)}")
+        st.stop()
 
 # --------------------------
 # Prediction System
 # --------------------------
 if st.sidebar.button("Analyze Urban Heat"):
     try:
-        # Create input DataFrame
-        input_df = pd.DataFrame([inputs], columns=feature_names)
+        # Feature Validation
+        missing_features = [f for f in required_features if f not in inputs]
+        if missing_features:
+            st.error(f"Missing features: {', '.join(missing_features)}")
+            st.stop()
+            
+        # Create input DataFrame with exact feature order
+        input_df = pd.DataFrame([inputs], columns=required_features)
         
-        # Encode surface material
-        material_map = {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
-        input_df['Surface Material'] = input_df['Surface Material'].map(material_map)
-        
+        # Encode categorical features
+        if 'Surface Material' in required_features:
+            material_map = {"Concrete":0, "Asphalt":1, "Grass":2, "Water":3, "Mixed":4}
+            input_df['Surface Material'] = input_df['Surface Material'].map(material_map)
+            input_df['Surface Material'] = input_df['Surface Material'].astype(int)
+
+        # Debug Info
+        with st.expander("Debug Information", expanded=False):
+            st.write("### Model Expectations")
+            st.write(f"scikit-learn version: {st.session_state.sklearn_version}")
+            st.write(f"Required features ({len(required_features)}):", list(required_features))
+            st.write("### Provided Inputs")
+            st.write(input_df.T)
+
         # Make prediction
         prediction = model.predict(input_df)[0]
         
         # --------------------------
-        # Comprehensive Analysis
+        # Analysis & Recommendations
         # --------------------------
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.subheader("Prediction Results")
-            st.metric("Predicted Surface Temperature", f"{prediction:.1f}°C")
+            st.subheader("Core Prediction")
+            st.metric("Surface Temperature", f"{prediction:.1f}°C")
             st.image(xai_image, caption="Feature Impact Analysis", use_column_width=True)
             
         with col2:
             st.subheader("Heat Mitigation Strategy")
             
-            # Initialize recommendations
+            # Generate recommendations
             recommendations = []
-            urgency_level = 0
-            
-            # Temperature-based urgency
             if prediction > HEAT_THRESHOLDS['critical_temp']:
-                recommendations.append(("🚨 Emergency Cooling Needed", "critical"))
-                urgency_level = 3
-            elif prediction > 35.0:
-                urgency_level = 2
-            else:
-                urgency_level = 1
-
-            # Feature-based recommendations
+                st.error("🚨 Emergency Cooling Required")
+                recommendations.append("Immediate implementation of cooling centers")
+                recommendations.append("Temporary restrictions on heat-generating activities")
+                
             if inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min']:
                 deficit = HEAT_THRESHOLDS['green_cover_min'] - inputs['Green Cover Percentage']
-                recommendations.append((
-                    f"🌳 Increase green cover by {deficit}% (Current: {inputs['Green Cover Percentage']}%)",
-                    "high"
-                ))
+                recommendations.append(f"🌳 Increase green cover by {deficit}% (Current: {inputs['Green Cover Percentage']}%)")
                 
             if inputs['Albedo'] < HEAT_THRESHOLDS['albedo_min']:
-                recommendations.append((
-                    f"🏗️ Use reflective materials to increase albedo above {HEAT_THRESHOLDS['albedo_min']}",
-                    "medium"
-                ))
+                recommendations.append(f"🏗️ Improve surface reflectivity to ≥{HEAT_THRESHOLDS['albedo_min']} albedo")
                 
             if inputs['Building Height'] > HEAT_THRESHOLDS['building_height_max']:
-                recommendations.append((
-                    f"🏢 Optimize building heights below {HEAT_THRESHOLDS['building_height_max']}m",
-                    "medium"
-                ))
+                recommendations.append(f"🏢 Optimize building heights below {HEAT_THRESHOLDS['building_height_max']}m")
                 
             if inputs['Heat Stress Index'] > HEAT_THRESHOLDS['heat_stress_max']:
-                recommendations.append((
-                    f"🌡️ Implement heat stress reduction measures (Current HSI: {inputs['Heat Stress Index']})",
-                    "high"
-                ))
+                recommendations.append(f"🌡️ Reduce heat stress through shading and ventilation")
                 
             if inputs['Population Density'] > HEAT_THRESHOLDS['population_density_max']:
-                recommendations.append((
-                    f"👥 Reduce population density through urban planning",
-                    "medium"
-                ))
+                recommendations.append(f"👥 Decentralize population density through urban planning")
                 
-            if inputs['Surface Material'] in ["Concrete", "Asphalt"]:
-                recommendations.append((
-                    "🛣️ Consider permeable pavement options for better heat dissipation",
-                    "medium"
-                ))
-
-            # Display recommendations by priority
+            # Display recommendations
             if recommendations:
                 st.write("### Priority Actions")
-                priority_order = {"critical": 0, "high": 1, "medium": 2}
-                for rec in sorted(recommendations, key=lambda x: priority_order[x[1]]):
-                    if rec[1] == "critical":
-                        st.error(rec[0])
-                    elif rec[1] == "high":
-                        st.warning(rec[0])
-                    else:
-                        st.info(rec[0])
+                for rec in recommendations:
+                    st.warning(rec)
             else:
-                st.success("✅ Urban parameters within optimal ranges for heat management")
-
-            # Thermal comfort analysis
-            st.write("### Thermal Profile")
-            col2.metric("Heat Stress Risk", 
-                       "High" if inputs['Heat Stress Index'] > 4.0 else "Moderate" if inputs['Heat Stress Index'] > 2.5 else "Low",
-                       help="Combined impact of temperature and humidity on human comfort")
-            
-            col2.metric("Cooling Potential", 
-                       f"{inputs['Proximity to Water Body']}m from water body",
-                       delta="-2°C per 100m" if inputs['Proximity to Water Body'] < 500 else "+1.5°C over 500m")
+                st.success("✅ Urban parameters within optimal heat management ranges")
 
     except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
+        st.error(f"""
+        **Analysis Failed**  
+        {traceback.format_exc()}
+        """)
+        st.stop()
 
 # --------------------------
-# Footer
+# Footer & Debug Info
 # --------------------------
 st.markdown("---")
-st.caption("Urban Heat Analysis Framework v4.0 | Thresholds based on WHO urban guidelines")
-# Footer
-# --------------------------
-st.markdown("---")
-st.caption(f"Surface Material Options: {', '.join(SURFACE_MATERIALS)} | Model version: 3.0")
+st.caption(f"""
+**System Information**  
+- scikit-learn: {st.session_state.sklearn_version}  
+- Model Features: {len(required_features)}  
+- Last Updated: 2024-02-15  
+""")
