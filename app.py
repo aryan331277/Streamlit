@@ -4,7 +4,8 @@ import pandas as pd
 from PIL import Image
 import traceback
 import sklearn
-
+import pydeck as pdk
+import numpy as np
 
 MODEL_PATH = "model.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
@@ -17,13 +18,10 @@ HEAT_THRESHOLDS = {
     'population_density_max': 15000
 }
 
-
 try:
     model = joblib.load(MODEL_PATH)
     required_features = model.feature_names_in_
-    
     xai_image = Image.open(XAI_IMAGE_PATH)
-    
     st.session_state['sklearn_version'] = sklearn.__version__
 
 except FileNotFoundError as e:
@@ -44,6 +42,59 @@ except Exception as e:
 
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
 st.title("Comprehensive Urban Heat Analysis")
+
+# Regional Heatmap Section
+st.subheader("Regional Heatmap Analysis")
+cities = {
+    'Hyderabad': {'coords': (17.3850, 78.4867), 'avg_temp': 35},
+    'Delhi': {'coords': (28.7041, 77.1025), 'avg_temp': 40},
+    'Mumbai': {'coords': (19.0760, 72.8777), 'avg_temp': 32}
+}
+
+def generate_sample_data(coords, avg_temp, num_points=50, temp_std=2):
+    np.random.seed(42)
+    lats = np.random.normal(coords[0], 0.1, num_points)
+    lons = np.random.normal(coords[1], 0.1, num_points)
+    temps = avg_temp + np.random.randn(num_points) * temp_std
+    return pd.DataFrame({'lat': lats, 'lon': lons, 'temperature': temps})
+
+all_data = pd.DataFrame()
+for city in cities.values():
+    city_data = generate_sample_data(city['coords'], city['avg_temp'])
+    all_data = pd.concat([all_data, city_data], ignore_index=True)
+
+heatmap_layer = pdk.Layer(
+    "HeatmapLayer",
+    data=all_data,
+    get_position='[lon, lat]',
+    get_weight='temperature',
+    aggregation="MEAN",
+    radius_pixels=50,
+    opacity=0.8,
+    threshold=0.05,
+    color_range=[
+        [0, 128, 0, 150],    # Green (cool)
+        [255, 255, 0, 150],  # Yellow
+        [255, 165, 0, 150],  # Orange
+        [255, 0, 0, 150]     # Red (hot)
+    ]
+)
+
+view_state = pdk.ViewState(
+    latitude=23.0,
+    longitude=77.0,
+    zoom=4,
+    pitch=0,
+    bearing=0
+)
+
+r = pdk.Deck(
+    layers=[heatmap_layer],
+    initial_view_state=view_state,
+    map_style='mapbox://styles/mapbox/dark-v10'
+)
+
+st.pydeck_chart(r)
 
 with st.sidebar:
     st.header("Urban Parameters")
