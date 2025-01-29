@@ -7,7 +7,7 @@ import sklearn
 import requests  
 
 API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-neo-1.3B"  
-API_KEY = "your_hugging_face_api_key"  
+API_KEY = "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"  
 MODEL_PATH = "model.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 HEAT_THRESHOLDS = {
