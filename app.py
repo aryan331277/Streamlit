@@ -18,6 +18,28 @@ HEAT_THRESHOLDS = {
     'population_density_max': 15000
 }
 
+# City configurations
+CITIES = {
+    'Mumbai': {
+        'lat_range': (18.9, 19.3),
+        'lon_range': (72.7, 73.1),
+        'default_lat': 19.0760,
+        'default_lon': 72.8777
+    },
+    'Hyderabad': {
+        'lat_range': (17.3, 17.5),
+        'lon_range': (78.3, 78.6),
+        'default_lat': 17.3850,
+        'default_lon': 78.4867
+    },
+    'Delhi': {
+        'lat_range': (28.4, 28.9),
+        'lon_range': (76.8, 77.4),
+        'default_lat': 28.7041,
+        'default_lon': 77.1025
+    }
+}
+
 try:
     model = joblib.load(MODEL_PATH)
     required_features = model.feature_names_in_
@@ -45,7 +67,7 @@ st.title("Comprehensive Urban Heat Analysis")
 
 # Regional Heatmap Section
 st.subheader("Regional Heatmap Analysis")
-cities = {
+cities_data = {
     'Hyderabad': {'coords': (17.3850, 78.4867), 'avg_temp': 35},
     'Delhi': {'coords': (28.7041, 77.1025), 'avg_temp': 40},
     'Mumbai': {'coords': (19.0760, 72.8777), 'avg_temp': 32}
@@ -59,7 +81,7 @@ def generate_sample_data(coords, avg_temp, num_points=50, temp_std=2):
     return pd.DataFrame({'lat': lats, 'lon': lons, 'temperature': temps})
 
 all_data = pd.DataFrame()
-for city in cities.values():
+for city in cities_data.values():
     city_data = generate_sample_data(city['coords'], city['avg_temp'])
     all_data = pd.concat([all_data, city_data], ignore_index=True)
 
@@ -88,21 +110,39 @@ view_state = pdk.ViewState(
     bearing=0
 )
 
-r = pdk.Deck(
+st.pydeck_chart(pdk.Deck(
     layers=[heatmap_layer],
     initial_view_state=view_state,
     map_style='mapbox://styles/mapbox/dark-v10'
-)
-
-st.pydeck_chart(r)
+))
 
 with st.sidebar:
+    st.header("City Configuration")
+    selected_city = st.selectbox("Select City", list(CITIES.keys()))
+    
     st.header("Urban Parameters")
     inputs = {}
     
     try:
-        inputs['Latitude'] = st.number_input("Latitude", 19.0, 19.2, 19.0760, 0.0001)
-        inputs['Longitude'] = st.number_input("Longitude", 72.8, 73.0, 72.8777, 0.0001)
+        city_config = CITIES[selected_city]
+        
+        inputs['Latitude'] = st.number_input(
+            "Latitude", 
+            min_value=city_config['lat_range'][0],
+            max_value=city_config['lat_range'][1],
+            value=city_config['default_lat'],
+            step=0.0001
+        )
+        
+        inputs['Longitude'] = st.number_input(
+            "Longitude",
+            min_value=city_config['lon_range'][0],
+            max_value=city_config['lon_range'][1],
+            value=city_config['default_lon'],
+            step=0.0001
+        )
+        
+        # Common parameters for all cities
         inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
         inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
         inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
@@ -122,7 +162,6 @@ with st.sidebar:
     except KeyError as e:
         st.error(f"Missing input field: {str(e)}")
         st.stop()
-
 
 if st.sidebar.button("Analyze Urban Heat"):
     try:
@@ -145,7 +184,6 @@ if st.sidebar.button("Analyze Urban Heat"):
             st.write("### Provided Inputs")
             st.write(input_df.T)
 
-        # Make prediction
         prediction = model.predict(input_df)[0]
 
         col1, col2 = st.columns([1, 2])
@@ -156,31 +194,27 @@ if st.sidebar.button("Analyze Urban Heat"):
             st.image(xai_image, caption="Feature Impact Analysis", use_column_width=True)
             
         with col2:
-            st.subheader("Heat Mitigation Strategy")
-            
+            st.subheader("City-Specific Mitigation Strategy")
             recommendations = []
+            
             if prediction > HEAT_THRESHOLDS['critical_temp']:
-                st.error("🚨 Emergency Cooling Required")
+                st.error(f"🚨 {selected_city} Cooling Emergency Protocol Activated")
                 recommendations.append("Immediate implementation of cooling centers")
-                recommendations.append("Temporary restrictions on heat-generating activities")
+                
+            if selected_city == 'Delhi':
+                recommendations.append("🌫️ Address particulate matter pollution")
+                recommendations.append("🏭 Implement industrial emission controls")
+            elif selected_city == 'Mumbai':
+                recommendations.append("🌊 Optimize coastal cooling effects")
+                recommendations.append("🏙️ Manage high-rise heat trapping")
+            elif selected_city == 'Hyderabad':
+                recommendations.append("🏞️ Enhance urban water body preservation")
+                recommendations.append("🌇 Optimize IT park energy consumption")
                 
             if inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min']:
                 deficit = HEAT_THRESHOLDS['green_cover_min'] - inputs['Green Cover Percentage']
                 recommendations.append(f"🌳 Increase green cover by {deficit}% (Current: {inputs['Green Cover Percentage']}%)")
                 
-            if inputs['Albedo'] < HEAT_THRESHOLDS['albedo_min']:
-                recommendations.append(f"🏗️ Improve surface reflectivity to ≥{HEAT_THRESHOLDS['albedo_min']} albedo")
-                
-            if inputs['Building Height'] > HEAT_THRESHOLDS['building_height_max']:
-                recommendations.append(f"🏢 Optimize building heights below {HEAT_THRESHOLDS['building_height_max']}m")
-                
-            if inputs['Heat Stress Index'] > HEAT_THRESHOLDS['heat_stress_max']:
-                recommendations.append(f"🌡️ Reduce heat stress through shading and ventilation")
-                
-            if inputs['Population Density'] > HEAT_THRESHOLDS['population_density_max']:
-                recommendations.append(f"👥 Decentralize population density through urban planning")
-                
-            # Display recommendations
             if recommendations:
                 st.write("### Priority Actions")
                 for rec in recommendations:
