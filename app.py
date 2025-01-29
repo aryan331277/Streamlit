@@ -4,10 +4,8 @@ import pandas as pd
 from PIL import Image
 import traceback
 import sklearn
-import requests  
 
-API_URL = "https://api-inference.huggingface.co/models/EleutherAI/gpt-neo-1.3B"  
-API_KEY = "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"  
+
 MODEL_PATH = "model.pkl"
 XAI_IMAGE_PATH = "feature importance of rf regressor.png"
 HEAT_THRESHOLDS = {
@@ -19,21 +17,6 @@ HEAT_THRESHOLDS = {
     'population_density_max': 15000
 }
 
-def generate_suggestions(prompt):
-    """Generate suggestions using Hugging Face's Inference API."""
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_length": 200,  
-            "temperature": 0.7,  
-        }
-    }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    if response.status_code == 200:
-        return response.json()[0]['generated_text']
-    else:
-        return f"Error: {response.status_code}, {response.text}"
 
 try:
     model = joblib.load(MODEL_PATH)
@@ -111,6 +94,7 @@ if st.sidebar.button("Analyze Urban Heat"):
             st.write("### Provided Inputs")
             st.write(input_df.T)
 
+        # Make prediction
         prediction = model.predict(input_df)[0]
 
         col1, col2 = st.columns([1, 2])
@@ -123,21 +107,35 @@ if st.sidebar.button("Analyze Urban Heat"):
         with col2:
             st.subheader("Heat Mitigation Strategy")
             
-            prompt = f"""
-            Based on the following urban heat data, provide actionable suggestions to mitigate heat issues:
-            - Surface Temperature: {prediction:.1f}°C
-            - Green Cover: {inputs['Green Cover Percentage']}%
-            - Albedo: {inputs['Albedo']}
-            - Population Density: {inputs['Population Density']} people/km²
-            - Building Height: {inputs['Building Height']}m
-            - Heat Stress Index: {inputs['Heat Stress Index']}
-            - Surface Material: {inputs['Surface Material']}
-            """
-            
-            suggestions = generate_suggestions(prompt)
-            
-            st.write("### Recommendations")
-            st.write(suggestions)
+            recommendations = []
+            if prediction > HEAT_THRESHOLDS['critical_temp']:
+                st.error("🚨 Emergency Cooling Required")
+                recommendations.append("Immediate implementation of cooling centers")
+                recommendations.append("Temporary restrictions on heat-generating activities")
+                
+            if inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min']:
+                deficit = HEAT_THRESHOLDS['green_cover_min'] - inputs['Green Cover Percentage']
+                recommendations.append(f"🌳 Increase green cover by {deficit}% (Current: {inputs['Green Cover Percentage']}%)")
+                
+            if inputs['Albedo'] < HEAT_THRESHOLDS['albedo_min']:
+                recommendations.append(f"🏗️ Improve surface reflectivity to ≥{HEAT_THRESHOLDS['albedo_min']} albedo")
+                
+            if inputs['Building Height'] > HEAT_THRESHOLDS['building_height_max']:
+                recommendations.append(f"🏢 Optimize building heights below {HEAT_THRESHOLDS['building_height_max']}m")
+                
+            if inputs['Heat Stress Index'] > HEAT_THRESHOLDS['heat_stress_max']:
+                recommendations.append(f"🌡️ Reduce heat stress through shading and ventilation")
+                
+            if inputs['Population Density'] > HEAT_THRESHOLDS['population_density_max']:
+                recommendations.append(f"👥 Decentralize population density through urban planning")
+                
+            # Display recommendations
+            if recommendations:
+                st.write("### Priority Actions")
+                for rec in recommendations:
+                    st.warning(rec)
+            else:
+                st.success("✅ Urban parameters within optimal heat management ranges")
 
     except Exception as e:
         st.error(f"""
