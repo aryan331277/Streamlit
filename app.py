@@ -203,95 +203,94 @@ if st.sidebar.button("Analyze Urban Heat"):
             recommendations = []
             
             # Emergency protocol
-if prediction > HEAT_THRESHOLDS['critical_temp']:
-    st.error(f"🚨 {selected_city}: Extreme Heat Alert!")
-    recommendations.extend([
-        "🏢 Open cooling centers 24/7 with free hydration stations",
-        "🚒 Deploy emergency misting stations in high-density areas",
-        "🚑 Mobilize medical teams for heatstroke prevention and response"
-    ])
+            if prediction > HEAT_THRESHOLDS['critical_temp']:
+                st.error(f"🚨 {selected_city} Cooling Emergency Protocol Activated")
+                recommendations.extend([
+                    "Immediate activation of cooling centers",
+                    "Deploy mobile water mist stations",
+                    "Activate heat emergency response team"
+                ])
+            
+            # Parameter-specific recommendations
+            param_actions = {
+                'Green Cover Percentage': (
+                    inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min'],
+                    f"🌳 Increase green cover by {HEAT_THRESHOLDS['green_cover_min'] - inputs['Green Cover Percentage']}% (Current: {inputs['Green Cover Percentage']}%)"
+                ),
+                'Albedo': (
+                    inputs['Albedo'] < HEAT_THRESHOLDS['albedo_min'],
+                    f"🌞 Boost albedo by {HEAT_THRESHOLDS['albedo_min'] - inputs['Albedo']:.2f} using reflective materials (Current: {inputs['Albedo']})"
+                ),
+                'Building Height': (
+                    inputs['Building Height'] > HEAT_THRESHOLDS['building_height_max'],
+                    f"🏗️ Enforce height limit of {HEAT_THRESHOLDS['building_height_max']}m (Current: {inputs['Building Height']}m)"
+                ),
+                'Road Density': (
+                    inputs['Road Density'] > HEAT_THRESHOLDS['road_density_max'],
+                    f"🛣️ Reduce road density by {inputs['Road Density'] - HEAT_THRESHOLDS['road_density_max']:.1f} km/km² (Current: {inputs['Road Density']} km/km²)"
+                ),
+                'Proximity to Water Body': (
+                    inputs['Proximity to Water Body'] > HEAT_THRESHOLDS['water_proximity_optimal'],
+                    f"💧 Create water features within {HEAT_THRESHOLDS['water_proximity_optimal']}m (Current: {inputs['Proximity to Water Body']}m)"
+                ),
+                'Population Density': (
+                    inputs['Population Density'] > HEAT_THRESHOLDS['population_density_max'],
+                    f"👥 Decongest area by {(inputs['Population Density'] - HEAT_THRESHOLDS['population_density_max'])/1000:.1f}k people/km²"
+                ),
+                'Heat Stress Index': (
+                    inputs['Heat Stress Index'] > HEAT_THRESHOLDS['heat_stress_max'],
+                    f"🔥 Implement worker heat protection measures (Current index: {inputs['Heat Stress Index']})"
+                )
+            }
 
-# Parameter-Specific Recommendations
-param_actions = {
-    'Green Cover Percentage': (
-        inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min'],
-        f"🌳 Increase urban greenery by at least {HEAT_THRESHOLDS['green_cover_min'] - inputs['Green Cover Percentage']}% to improve heat absorption. (Current: {inputs['Green Cover Percentage']}%)"
-    ),
-    'Albedo': (
-        inputs['Albedo'] < HEAT_THRESHOLDS['albedo_min'],
-        f"🌞 Enhance reflectivity by {HEAT_THRESHOLDS['albedo_min'] - inputs['Albedo']:.2f} using cool roofing and high-albedo pavements. (Current: {inputs['Albedo']})"
-    ),
-    'Building Height': (
-        inputs['Building Height'] > HEAT_THRESHOLDS['building_height_max'],
-        f"🏗️ Implement zoning laws to maintain max building height of {HEAT_THRESHOLDS['building_height_max']}m for better airflow. (Current: {inputs['Building Height']}m)"
-    ),
-    'Road Density': (
-        inputs['Road Density'] > HEAT_THRESHOLDS['road_density_max'],
-        f"🛣️ Reduce paved surfaces by {inputs['Road Density'] - HEAT_THRESHOLDS['road_density_max']:.1f} km/km²; prioritize permeable materials and shaded roads. (Current: {inputs['Road Density']} km/km²)"
-    ),
-    'Proximity to Water Body': (
-        inputs['Proximity to Water Body'] > HEAT_THRESHOLDS['water_proximity_optimal'],
-        f"💧 Establish water features within {HEAT_THRESHOLDS['water_proximity_optimal']}m for localized cooling. (Current: {inputs['Proximity to Water Body']}m)"
-    ),
-    'Population Density': (
-        inputs['Population Density'] > HEAT_THRESHOLDS['population_density_max'],
-        f"👥 Promote mixed-use development and urban decongestion strategies to redistribute {(inputs['Population Density'] - HEAT_THRESHOLDS['population_density_max'])/1000:.1f}k people/km²."
-    ),
-    'Heat Stress Index': (
-        inputs['Heat Stress Index'] > HEAT_THRESHOLDS['heat_stress_max'],
-        f"🔥 Enforce workplace heat safety protocols, increase shaded rest areas, and schedule work during cooler hours. (Current index: {inputs['Heat Stress Index']})"
-    )
-}
+            for param, (condition, message) in param_actions.items():
+                if condition:
+                    recommendations.append(message)
 
-for param, (condition, message) in param_actions.items():
-    if condition:
-        recommendations.append(message)
+            # Special parameter handling
+            hum = inputs['Relative Humidity']
+            if hum < HEAT_THRESHOLDS['humidity_optimal'][0]:
+                recommendations.append(f"🏜️ Increase humidity through water features (Current: {hum}%)")
+            elif hum > HEAT_THRESHOLDS['humidity_optimal'][1]:
+                recommendations.append(f"🌫️ Improve drainage to reduce humidity (Current: {hum}%)")
 
-# Humidity Optimization
-hum = inputs['Relative Humidity']
-if hum < HEAT_THRESHOLDS['humidity_optimal'][0]:
-    recommendations.append(f"🏜️ Increase humidity via urban water bodies and misting systems. (Current: {hum}%)")
-elif hum > HEAT_THRESHOLDS['humidity_optimal'][1]:
-    recommendations.append(f"🌫️ Improve stormwater management to prevent excessive humidity buildup. (Current: {hum}%)")
+            if inputs['Urban Vegetation Index'] < HEAT_THRESHOLDS['vegetation_index_min']:
+                recommendations.append(f"🌿 Enhance vegetation density (Current index: {inputs['Urban Vegetation Index']:.2f})")
 
-# Vegetation & Carbon Emission Control
-if inputs['Urban Vegetation Index'] < HEAT_THRESHOLDS['vegetation_index_min']:
-    recommendations.append(f"🌿 Boost urban forestation and green walls. (Current index: {inputs['Urban Vegetation Index']:.2f})")
+            if inputs['Carbon Emission Levels'] > HEAT_THRESHOLDS['co2_max']:
+                recommendations.append(f"🏭 Reduce emissions by {inputs['Carbon Emission Levels'] - HEAT_THRESHOLDS['co2_max']}ppm (Current: {inputs['Carbon Emission Levels']}ppm)")
 
-if inputs['Carbon Emission Levels'] > HEAT_THRESHOLDS['co2_max']:
-    recommendations.append(f"🏭 Implement stricter air quality controls to cut emissions by {inputs['Carbon Emission Levels'] - HEAT_THRESHOLDS['co2_max']}ppm. (Current: {inputs['Carbon Emission Levels']}ppm)")
+            # City-specific strategies
+            city_strategies = {
+                'Delhi': [
+                    "🌫️ Implement smog tower network",
+                    "🌇 Retrofit government buildings with cool roofs",
+                    "🚲 Expand shaded cycling corridors"
+                ],
+                'Mumbai': [
+                    "🌊 Develop mangrove cooling corridors",
+                    "🌉 Optimize sea bridge ventilation",
+                    "🏙️ Implement high-rise wind channel design"
+                ],
+                'Hyderabad': [
+                    "🏞️ Expand Hussain Sagar cooling zone",
+                    "🌆 Implement smart lake monitoring",
+                    "🏗️ Enforce green building codes for IT parks"
+                ]
+            }
+            recommendations.extend(city_strategies.get(selected_city, []))
+            
+            # Display recommendations
+            if recommendations:
+                st.write("### Priority Action Plan")
+                for i, rec in enumerate(recommendations, 1):
+                    st.warning(f"{i}. {rec}")
+            else:
+                st.success("✅ All parameters within optimal urban heat resilience ranges")
 
-# City-Specific Strategies
-city_strategies = {
-    'Delhi': [
-        "🌫️ Deploy advanced air purification towers and green buffer zones",
-        "🌇 Retrofit public buildings with cool roofs and vertical gardens",
-        "🚲 Expand shaded pedestrian and cycling networks to reduce vehicle dependency"
-    ],
-    'Mumbai': [
-        "🌊 Strengthen mangrove conservation to enhance coastal cooling",
-        "🌉 Improve cross-ventilation in sea bridge infrastructure",
-        "🏙️ Design urban wind corridors for improved air circulation"
-    ],
-    'Hyderabad': [
-        "🏞️ Develop extensive urban wetlands for natural cooling",
-        "🌆 Implement AI-driven lake monitoring for sustainable water management",
-        "🏗️ Enforce green building codes with mandatory rooftop gardens and solar reflectors"
-    ]
-}
-recommendations.extend(city_strategies.get(selected_city, []))
-
-# Display Recommendations
-if recommendations:
-    st.write("### 📌 Priority Action Plan")
-    for i, rec in enumerate(recommendations, 1):
-        st.warning(f"{i}. {rec}")
-else:
-    st.success("✅ All parameters are within optimal urban heat resilience ranges!")
-
-except Exception as e:
-    st.error(f"""
-    **Analysis Failed**  
-    {traceback.format_exc()}
-    """)
-    st.stop()
+    except Exception as e:
+        st.error(f"""
+        **Analysis Failed**  
+        {traceback.format_exc()}
+        """)
+        st.stop()
