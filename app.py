@@ -1,3 +1,4 @@
+
 import streamlit as st
 import joblib
 import pandas as pd
@@ -42,6 +43,7 @@ CITIES = {
         'default_lat': 28.7041,
         'default_lon': 77.1025
     }
+
 }
 
 try:
@@ -69,13 +71,31 @@ except Exception as e:
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
 st.title("Comprehensive Urban Heat Analysis")
 
-all_data = pd.read_csv('heatmap_final.csv')
+st.subheader("Regional Heatmap Analysis")
+
+def generate_sample_data(coords, avg_temp, num_points=50, temp_std=2):
+    np.random.seed(42)
+    lats = np.random.normal(coords[0], 0.1, num_points)
+    lons = np.random.normal(coords[1], 0.1, num_points)
+    temps = avg_temp + np.random.randn(num_points) * temp_std
+    return pd.DataFrame({'lat': lats, 'lon': lons, 'temperature': temps})
+
+cities_data = {
+    'Hyderabad': {'coords': (17.3850, 78.4867), 'avg_temp': 35},
+    'Delhi': {'coords': (28.7041, 77.1025), 'avg_temp': 40},
+    'Mumbai': {'coords': (19.0760, 72.8777), 'avg_temp': 32}
+}
+
+all_data = pd.DataFrame()
+for city in cities_data.values():
+    city_data = generate_sample_data(city['coords'], city['avg_temp'])
+    all_data = pd.concat([all_data, city_data], ignore_index=True)
 
 heatmap_layer = pdk.Layer(
     "HeatmapLayer",
     data=all_data,
-    get_position='[Latitude, Longitude]',  # Adjust this if your CSV uses different column names
-    get_weight='Land Surface Temperature',  # Using the 'temperature' column as weight
+    get_position='[lon, lat]',
+    get_weight='temperature',
     aggregation="MEAN",
     radius_pixels=50,
     opacity=0.8,
@@ -96,7 +116,6 @@ view_state = pdk.ViewState(
     bearing=0
 )
 
-# Display the heatmap with Streamlit
 st.pydeck_chart(pdk.Deck(
     layers=[heatmap_layer],
     initial_view_state=view_state,
@@ -129,7 +148,6 @@ with st.sidebar:
             step=0.0001
         )
         
-        # Urban parameters inputs
         inputs['Population Density'] = st.number_input("Population Density (people/km²)", 1000, 50000, 20000)
         inputs['Albedo'] = st.slider("Albedo", 0.0, 1.0, 0.3, 0.05)
         inputs['Green Cover Percentage'] = st.slider("Green Cover (%)", 0, 100, 25)
@@ -184,7 +202,6 @@ if st.sidebar.button("Analyze Urban Heat"):
             st.subheader("Urban Heat Mitigation Strategy")
             recommendations = []
             
-            # Emergency protocol
             if prediction > HEAT_THRESHOLDS['critical_temp']:
                 st.error(f"🚨 {selected_city} Cooling Emergency Protocol Activated")
                 recommendations.extend([
@@ -193,7 +210,6 @@ if st.sidebar.button("Analyze Urban Heat"):
                     "Activate heat emergency response team"
                 ])
             
-            # Parameter-specific recommendations
             param_actions = {
                 'Green Cover Percentage': (
                     inputs['Green Cover Percentage'] < HEAT_THRESHOLDS['green_cover_min'],
