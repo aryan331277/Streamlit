@@ -71,39 +71,22 @@ st.title("Comprehensive Urban Heat Analysis")
 
 # Regional Heatmap Section
 st.subheader("Regional Heatmap Analysis")
-
-def generate_sample_data(coords, avg_temp, num_points=50, temp_std=2):
-    np.random.seed(42)
-    lats = np.random.normal(coords[0], 0.1, num_points)
-    lons = np.random.normal(coords[1], 0.1, num_points)
-    temps = avg_temp + np.random.randn(num_points) * temp_std
-    return pd.DataFrame({'lat': lats, 'lon': lons, 'temperature': temps})
-
-cities_data = {
-    'Hyderabad': {'coords': (17.3850, 78.4867), 'avg_temp': 35},
-    'Delhi': {'coords': (28.7041, 77.1025), 'avg_temp': 40},
-    'Mumbai': {'coords': (19.0760, 72.8777), 'avg_temp': 32}
-}
-
-all_data = pd.DataFrame()
-for city in cities_data.values():
-    city_data = generate_sample_data(city['coords'], city['avg_temp'])
-    all_data = pd.concat([all_data, city_data], ignore_index=True)
+all_data = pd.read_csv('heatmap.csv')
 
 heatmap_layer = pdk.Layer(
     "HeatmapLayer",
     data=all_data,
-    get_position='[lon, lat]',
-    get_weight='temperature',
+    get_position='[Longitude, Latitude]',  # Adjust this if your CSV uses different column names
+    get_weight='Land Surface Temperature',  # Using the 'temperature' column as weight
     aggregation="MEAN",
     radius_pixels=50,
     opacity=0.8,
     threshold=0.05,
     color_range=[
-        [0, 128, 0, 150],    # Green (cool)
-        [255, 255, 0, 150],  # Yellow
-        [255, 165, 0, 150],  # Orange
-        [255, 0, 0, 150]     # Red (hot)
+        [0, 128, 0, 150],    
+        [255, 255, 0, 150],  
+        [255, 165, 0, 150],  
+        [255, 0, 0, 150]     
     ]
 )
 
@@ -115,12 +98,12 @@ view_state = pdk.ViewState(
     bearing=0
 )
 
+# Display the heatmap with Streamlit
 st.pydeck_chart(pdk.Deck(
     layers=[heatmap_layer],
     initial_view_state=view_state,
     map_style='mapbox://styles/mapbox/dark-v10'
 ))
-
 with st.sidebar:
     st.header("City Configuration")
     selected_city = st.selectbox("Select City", list(CITIES.keys()))
