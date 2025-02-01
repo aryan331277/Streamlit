@@ -76,7 +76,7 @@ all_data = pd.read_csv('heatmap.csv')
 heatmap_layer = pdk.Layer(
     "HeatmapLayer",
     data=all_data,
-    get_position='[Longitude, Latitude]',  # Adjust this if your CSV uses different column names
+    get_position='[Latitude, Longitude]',  # Adjust this if your CSV uses different column names
     get_weight='Land Surface Temperature',  # Using the 'temperature' column as weight
     aggregation="MEAN",
     radius_pixels=50,
