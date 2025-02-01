@@ -69,15 +69,13 @@ except Exception as e:
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
 st.title("Comprehensive Urban Heat Analysis")
 
-# Regional Heatmap Section
-st.subheader("Regional Heatmap Analysis")
 all_data = pd.read_csv('heatmap.csv')
 
 heatmap_layer = pdk.Layer(
     "HeatmapLayer",
     data=all_data,
-    get_position='[Latitude, Longitude]',  # Adjust this if your CSV uses different column names
-    get_weight='Land Surface Temperature',  # Using the 'temperature' column as weight
+    get_position='[lon, lat]',  # Adjust this if your CSV uses different column names
+    get_weight='temperature',  # Using the 'temperature' column as weight
     aggregation="MEAN",
     radius_pixels=50,
     opacity=0.8,
@@ -104,6 +102,7 @@ st.pydeck_chart(pdk.Deck(
     initial_view_state=view_state,
     map_style='mapbox://styles/mapbox/dark-v10'
 ))
+
 with st.sidebar:
     st.header("City Configuration")
     selected_city = st.selectbox("Select City", list(CITIES.keys()))
