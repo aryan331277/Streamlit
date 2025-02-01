@@ -69,13 +69,13 @@ except Exception as e:
 st.set_page_config(page_title="Urban Heat Analyst", layout="wide")
 st.title("Comprehensive Urban Heat Analysis")
 
-all_data = pd.read_csv('heatmap.csv')
+all_data = pd.read_csv('heatmap_final.csv')
 
 heatmap_layer = pdk.Layer(
     "HeatmapLayer",
     data=all_data,
-    get_position='[lon, lat]',  # Adjust this if your CSV uses different column names
-    get_weight='temperature',  # Using the 'temperature' column as weight
+    get_position='[Latitude, Longitude]',  # Adjust this if your CSV uses different column names
+    get_weight='Land Surface Temperature',  # Using the 'temperature' column as weight
     aggregation="MEAN",
     radius_pixels=50,
     opacity=0.8,
