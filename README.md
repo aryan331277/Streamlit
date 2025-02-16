@@ -47,3 +47,7 @@ Easily adaptable to different cities and datasets.
 
 
 Thresholds and recommendations can be customized.
+
+
+The suggestions part were taking a lot of time so I trained the model on 50 unique enteries to get a standard template for suggestions and I am using that here
+
